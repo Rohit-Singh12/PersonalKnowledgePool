@@ -1,0 +1,41 @@
+# Python bytecode and caches
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Environment files
+.env
+.env.*
+
+# IDE/editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Test and coverage artifacts
+.pytest_cache/
+.coverage
+htmlcov/
+.coverage.*
+
+# Build/dist artifacts
+build/
+dist/
+*.egg-info/
+
+# Local databases and checkpoints
+*.sqlite
+*.sqlite3
+checkpoints.sqlite
+
+# Runtime data
+searxng/data/
+logs/
+*.log

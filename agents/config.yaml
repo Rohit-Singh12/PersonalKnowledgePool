@@ -1,0 +1,11 @@
+planner:
+  provider: nvidia
+  model: meta/llama-3.1-70b-instruct
+
+router:
+  provider: nvidia
+  model: meta/llama-3.1-8b-instruct
+
+synthesizer:
+  provider: nvidia
+  model: meta/llama-3.1-70b-instruct
