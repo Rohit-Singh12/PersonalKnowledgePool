@@ -56,3 +56,46 @@ The example query in agents/graph.py asks the agent to look for articles, scrape
 - Store checkpoints in PostgreSQL for better persistence and queryability
 - Build a Karpathy-style knowledge base that consolidates all of the user's data
 - Add user personalization so the system can tailor searches, summaries, and recommendations to the individual user
+
+## Prerequisites: PostgreSQL and environment variables
+
+Before running the MCP server you must have PostgreSQL (psql) available and the required environment variables set.
+
+1. Install PostgreSQL (example for Ubuntu/Debian):
+
+```bash
+sudo apt update
+sudo apt install -y postgresql postgresql-contrib
+```
+
+2. Start PostgreSQL and create a database and user (example):
+
+```bash
+sudo systemctl start postgresql
+sudo -u postgres psql
+-- In the psql prompt:
+CREATE DATABASE articles;
+CREATE USER rohit WITH ENCRYPTED PASSWORD 'yourpassword';
+GRANT ALL PRIVILEGES ON DATABASE articles TO rohit;
+\q
+```
+
+3. Set environment variables. You can create a `.env` file at the project root (not committed) using the format in `.env.example`.
+
+Example `.env` values:
+
+```
+DATABASE_URL=postgresql+asyncpg://rohit:yourpassword@localhost:5432/articles
+NVIDIA_API_KEY=nvapi-REPLACE_WITH_YOUR_KEY
+```
+
+4. Run the server from the `MCP` folder:
+
+```bash
+cd MCP
+python server.py
+```
+
+Notes:
+- Replace `rohit:yourpassword` with the DB user and password you created.
+- If you use a different API provider, set the corresponding API key environment variable instead of `NVIDIA_API_KEY`.
