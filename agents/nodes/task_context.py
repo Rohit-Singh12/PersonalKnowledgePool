@@ -230,7 +230,8 @@ async def context_synthesizer_node(state: AgentState):
 
     query_response= cast(AdditionalContextQuery, query_response)
     llm_query = query_response.query
-    
+    if artifacts_key not in state['artifacts']:
+        state['artifacts'][artifacts_key] = []
     state['artifacts'][artifacts_key].append(
         ContextQueryExchange(
             context=f"""

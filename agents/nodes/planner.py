@@ -19,6 +19,9 @@ Available tools Specifications:
 
 {tool_specs}
 
+Previous Converstation Context:
+{context}
+
 Rules:
 1. Decompose the request into the minimum number of tasks.
 2. Add dependencies when a task requires outputs from another task.
@@ -59,7 +62,7 @@ async def planner_node(state: AgentState):
     user_query = state["messages"][-1].content
     planner_llm = load_models('Planner')
     specs = await get_tool_specs()
-    planner_prompt = PLANNER_SYSTEM_PROMPT.format(tool_specs=specs)
+    planner_prompt = PLANNER_SYSTEM_PROMPT.format(tool_specs=specs, context=state['messages'])
     plan = await planner_llm.with_structured_output(
         Plan
     ).ainvoke(

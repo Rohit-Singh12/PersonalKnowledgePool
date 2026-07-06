@@ -15,8 +15,8 @@ async def register(mcp):
     @mcp.tool
     async def write_sql_query(sql: str) -> WriteResponse:
         """
-            Execute write SQL query
-            
+            Execute write SQL query. Make sure you have the schema of the database.
+            Call read_schema tool before this to ensure you are making correct query.
             Args:
                 sql (str): PSQL query to be executed
         """
@@ -25,7 +25,8 @@ async def register(mcp):
     @mcp.tool
     async def read_sql_queury(sql: str) -> QueryResponse:
         """
-            Execute Read related SQL quries
+            Execute Read related SQL quries. Make sure you have the schema of the database.
+            Call read_schema tool before this to ensure you are making correct query.
             
             Args:
                 sql (str): PSQL read query to be executed

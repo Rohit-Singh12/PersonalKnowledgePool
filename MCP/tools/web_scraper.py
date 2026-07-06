@@ -1,7 +1,7 @@
 from services.web_scarper import scrape_website
 
+
 def register(mcp):
-    
     @mcp.tool
     def scrape_url(url: str) -> str:
         """
@@ -21,5 +21,5 @@ def register(mcp):
         - Analyzing web content
         - Gathering context before answering questions
         """
-        
+
         return scrape_website(url)

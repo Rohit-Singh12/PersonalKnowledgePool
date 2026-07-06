@@ -3,7 +3,7 @@ import sqlite3
 from pathlib import Path
 
 from langchain_core.messages import HumanMessage
-from langgraph.checkpoint.sqlite import SqliteSaver
+from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 from langgraph.graph import (
     StateGraph,
     END,
@@ -20,12 +20,10 @@ from nodes.tool_call import tool_node
 CHECKPOINT_DB_PATH = Path(__file__).resolve().parent / "checkpoints.sqlite"
 
 
-def build_graph(checkpointer=None):
-    if checkpointer is None:
-        CHECKPOINT_DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-        connection = sqlite3.connect(CHECKPOINT_DB_PATH)
-        checkpointer = SqliteSaver(conn=connection)
-
+async def build_graph(checkpointer=None):
+    # if checkpointer is None:
+    CHECKPOINT_DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+    
     graph = StateGraph(AgentState)
 
     # NODES
@@ -48,26 +46,40 @@ def build_graph(checkpointer=None):
     return graph.compile(checkpointer=checkpointer)
 
 
-app = build_graph()
+async def run_agent(message: str, thread_id: str = "default-thread"):
+    CHECKPOINT_DB_PATH.parent.mkdir(parents=True, exist_ok=True)
 
+    async with AsyncSqliteSaver.from_conn_string(
+        str(CHECKPOINT_DB_PATH)
+    ) as checkpointer:
 
-def run_agent(message: str, thread_id: str = "default-thread"):
-    state = AgentState(
-        messages=[HumanMessage(content=message)],
-        artifacts={},
-        current_task_id=None,
-        final_response="",
-        selected_tool_name=None,
-        tasks=[],
-        worker_traces=[],
-    )
-    config = {"configurable": {"thread_id": thread_id}}
-    return asyncio.run(app.ainvoke(state, config=config))
+        app = await build_graph(checkpointer)
+        config = {"configurable": {"thread_id": thread_id}}
+        checkpoint = await checkpointer.aget(config)
+        print(checkpoint)
+        
+        if checkpoint:
+            state = {
+                "messages": [HumanMessage(content=message)]
+            }
+
+        state = AgentState(
+            messages=[HumanMessage(content=message)],
+            artifacts={},
+            current_task_id=None,
+            final_response="",
+            selected_tool_name=None,
+            tasks=[],
+            worker_traces=[],
+        )
+
+        
+        return await app.ainvoke(state, config=config)
 
 
 if __name__ == "__main__":
     print("CALLING STATE")
-    final_state = run_agent(
-        "Look out for articles on p-value in Machine Learning and Shap values. Save the top 2 articles in database."
-    )
+    final_state = asyncio.run(run_agent(
+        "Give the final response from the searches."
+    ))
     print(final_state)
