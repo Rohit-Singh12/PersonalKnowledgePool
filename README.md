@@ -46,6 +46,50 @@ You can also open a shell in the container first:
 docker compose exec -it langgraph-agent bash
 ```
 
+## Database migrations with Alembic
+
+The MCP service uses Alembic to manage PostgreSQL schema changes. Migration scripts live in [MCP/alembic](MCP/alembic) and the configuration is in [MCP/alembic.ini](MCP/alembic.ini).
+
+### Production-style workflow with Docker Compose
+
+For production-like deployments, run migrations from the running MCP container before or during a controlled deploy.
+
+1. Make sure the container has access to the correct database via the `DATABASE_URL` value in your `.env` file.
+2. Take a database backup using your usual production backup process.
+3. Apply the latest migrations:
+
+```bash
+docker compose exec -T mcp-server alembic upgrade head
+```
+
+4. Verify the current revision:
+
+```bash
+docker compose exec -T mcp-server alembic current
+```
+
+5. If you need to create a new migration after changing SQLAlchemy models:
+
+```bash
+docker compose exec -T mcp-server alembic revision --autogenerate -m "describe your change"
+```
+
+6. If you ever need to roll back a migration, use:
+
+```bash
+docker compose exec -T mcp-server alembic downgrade -1
+```
+
+### Local/manual Alembic usage
+
+If you are running the MCP app outside Docker, use the same commands from the `MCP` directory:
+
+```bash
+cd MCP
+alembic upgrade head
+alembic current
+```
+
 ### Manual setup (alternative)
 
 #### 1. Start the web search service
