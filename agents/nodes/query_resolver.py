@@ -1,4 +1,6 @@
+import asyncio
 import json
+import logging
 
 from langchain_core.messages import (
     SystemMessage,
@@ -11,6 +13,8 @@ from schemas.state import AgentState
 
 from utilities.load_model import load_models
 from utilities.dependency_helper import get_task
+
+logger = logging.getLogger(__name__)
 
 
 QUERY_SYSTEM_PROMPT = PromptTemplate.from_template("""
@@ -32,6 +36,7 @@ Here is the context. Answer based on the context ONLY.
 
 
 async def answer_query_node(state: AgentState):
+    logger.info("Starting answer_query_node for current_task_id=%s", state.get("current_task_id"))
 
     task = get_task(
         state,
@@ -47,11 +52,16 @@ async def answer_query_node(state: AgentState):
     )
 
     if not query_history:
+        logger.info("No query history found for artifact %s; skipping LLM call", artifacts_key)
         return {}
 
     latest = query_history[-1]
+    logger.info("Preparing query resolution LLM call for artifact %s with latest query=%s", artifacts_key, latest.get("query"))
 
     llm = load_models("Planner")
+    logger.info("Waiting 5 seconds before query resolver LLM call")
+    await asyncio.sleep(5)
+    logger.info("Making query resolver LLM call")
     response = await llm.ainvoke(
         [
             SystemMessage(
@@ -63,6 +73,7 @@ async def answer_query_node(state: AgentState):
         ]
     )
 
+    logger.info("Received query resolution response for artifact %s", artifacts_key)
     latest["query_response"] = {
         "answer": response.content
     }
@@ -71,6 +82,7 @@ async def answer_query_node(state: AgentState):
 
     state["artifacts"][artifacts_key] = query_history
 
+    logger.info("Completed answer_query_node for artifact %s", artifacts_key)
     return {
         "artifacts": state["artifacts"],
         "messages": [

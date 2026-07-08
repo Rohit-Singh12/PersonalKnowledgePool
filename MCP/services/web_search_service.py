@@ -6,7 +6,7 @@ from schemas.search_result_model import SearchResults, SearchResult
 
 app = typer.Typer()
 
-def query_web(topic: str, base_url: str = "http://localhost:8888") -> SearchResults:
+def query_web(topic: str, base_url: str = "http://searxng:8080") -> SearchResults:
     """
     Queries a local SearXNG instance and extracts titles and URLs for a given topic.
     """

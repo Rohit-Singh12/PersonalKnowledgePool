@@ -1,0 +1,38 @@
+services:
+  searxng:
+    image: docker.io/searxng/searxng:latest
+    container_name: searxng
+    ports:
+      - 8888:8080
+    volumes:
+      - ./searxng/config:/etc/searxng
+      - ./searxng/data:/var/cache/searxng
+  
+  mcp-server:
+    build: 
+      context: .
+      dockerfile: mcp.dockerfile
+    ports:
+      - 8080:8080
+    env_file:
+      - .env
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+  
+  langgraph-agent:
+    build:
+      context: .
+      dockerfile: agents.dockerfile
+    env_file:
+      - .env
+    # environment:
+    #   - LANGCHAIN_TRACING_V2=true
+    #   - LANGCHAIN_DEBUG=true
+    command: tail -f /dev/null
+    stdin_open: true
+    tty: true
+    depends_on:
+      - mcp-server
+    volumes: 
+      - ./agents/checkpoints.sqlite:/home/appuser/checkpoints.sqlite
+    

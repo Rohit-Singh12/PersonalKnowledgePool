@@ -1,4 +1,7 @@
+import asyncio
 import json
+import logging
+
 from langchain_core.messages import (
     AIMessage,
     HumanMessage,
@@ -10,6 +13,8 @@ from schemas.planner_output import Plan
 from utilities.load_model import load_models
 from utilities.tools_helper import get_tool_specs
 from langchain_core.prompts import PromptTemplate
+
+logger = logging.getLogger(__name__)
 
 
 PLANNER_SYSTEM_PROMPT = PromptTemplate.from_template("""
@@ -58,11 +63,17 @@ Output:
 
 
 async def planner_node(state: AgentState):
+    logger.info("Starting planner_node with message count=%s", len(state["messages"]))
 
     user_query = state["messages"][-1].content
+    logger.info("Preparing planner request for user query: %s", user_query)
     planner_llm = load_models('Planner')
     specs = await get_tool_specs()
+    logger.info("Loaded %s tool specs for planning", len(specs))
     planner_prompt = PLANNER_SYSTEM_PROMPT.format(tool_specs=specs, context=state['messages'])
+    logger.info("Waiting 5 seconds before planner LLM call. This ensures we don't hit Rate limit to these FREE APIs")
+    await asyncio.sleep(5)
+    logger.info("Making planner LLM call.")
     plan = await planner_llm.with_structured_output(
         Plan
     ).ainvoke(
@@ -76,6 +87,7 @@ async def planner_node(state: AgentState):
         ]
     )
 
+    logger.info("Planner returned %s tasks", len(plan.tasks))
     tasks = []
 
     for t in plan.tasks:  # type: ignore
@@ -93,6 +105,7 @@ async def planner_node(state: AgentState):
             }
         )
     
+    logger.info("Completed planner_node and created %s task entries", len(tasks))
     return {
         "tasks": tasks,
         "messages": [

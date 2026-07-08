@@ -1,4 +1,7 @@
+import asyncio
 import json
+import logging
+
 from langchain_core.messages import (
     AIMessage,
     HumanMessage,
@@ -22,6 +25,8 @@ from utilities.tools_helper import (
     get_tool,
 )
 from utilities.load_model import load_models
+
+logger = logging.getLogger(__name__)
 
 SYSTEM_TEMPLATE = """
 You are a context synthesizer.
@@ -55,6 +60,7 @@ Rules:
 
 
 async def context_synthesizer_node(state: AgentState):
+    logger.info("Starting context_synthesizer_node for current_task_id=%s", state.get("current_task_id"))
     task = get_task(state, state["current_task_id"])
 
     assert task is not None
@@ -63,6 +69,7 @@ async def context_synthesizer_node(state: AgentState):
     contexts = build_task_context(task, state)
 
     available_tools = await get_tool_specs()
+    logger.info("Built task context and loaded %s available tools", len(available_tools))
 
     llm = load_models("Planner")
     
@@ -102,7 +109,8 @@ async def context_synthesizer_node(state: AgentState):
     validation_error = ""
     response = None
 
-    for _ in range(RETRY_COUNT):
+    for attempt in range(RETRY_COUNT):
+        logger.info("Running context synthesis attempt %s/%s", attempt + 1, RETRY_COUNT)
 
         messages = [
             SystemMessage(content=formatted_system_prompt),
@@ -120,10 +128,14 @@ async def context_synthesizer_node(state: AgentState):
             ),
         ]
 
+        logger.info("Waiting 5 seconds before context synthesis LLM call")
+        await asyncio.sleep(5)
+        logger.info("Making context synthesis LLM call")
         response = cast(ToolSelection, await (
             llm.with_structured_output(ToolSelection)
             .ainvoke(messages)
         ))
+        logger.info("Context synthesis response ready for attempt %s: ready=%s", attempt + 1, response.ready)
 
         # Not ready => stop immediately
         if not response.ready:
@@ -198,6 +210,10 @@ async def context_synthesizer_node(state: AgentState):
     if artifacts_key not in artifacts:
         artifacts[artifacts_key] = [] #This is must to be a list else logic in upper part will break
     
+    logger.info("Preparing follow-up query generation LLM call")
+    logger.info("Waiting 5 seconds before additional context query LLM call")
+    await asyncio.sleep(5)
+    logger.info("Making additional context query LLM call")
     ## Ask the LLM to create query
     query_response = await (
     llm.with_structured_output(
@@ -229,6 +245,7 @@ async def context_synthesizer_node(state: AgentState):
         ]))
 
     query_response= cast(AdditionalContextQuery, query_response)
+    logger.info("Received additional context query: %s", query_response.query)
     llm_query = query_response.query
     if artifacts_key not in state['artifacts']:
         state['artifacts'][artifacts_key] = []
@@ -255,6 +272,7 @@ async def context_synthesizer_node(state: AgentState):
         )
     )
     
+    logger.info("Completed context_synthesizer_node and recorded follow-up query")
     return {
         "artifacts": state["artifacts"],
         "messages": [
@@ -269,6 +287,7 @@ async def context_synthesizer_node(state: AgentState):
     }
 
 def task_context_next_node(state: AgentState):
+    logger.info("Determining next node from last message type=%s", type(state["messages"][-1]).__name__)
     last_message = state["messages"][-1]
     
     if not isinstance(last_message, AIMessage):

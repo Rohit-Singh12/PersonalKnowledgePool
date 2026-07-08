@@ -17,7 +17,38 @@ Personal Knowledge Pool is a small AI-assisted knowledge base project that helps
 
 ## Setup
 
-### 1. Start the web search service
+### Docker Compose (recommended)
+
+Prerequisites:
+- Docker and Docker Compose installed
+- A `.env` file at the project root with the required environment variables, especially `DATABASE_URL`
+
+From the project root, run:
+
+```bash
+docker compose up --build
+```
+
+This starts the following services:
+- `searxng` on http://localhost:8888
+- `mcp-server` on http://localhost:8080
+- `langgraph-agent` as an interactive container for running the agent workflow
+
+To run the example workflow from the agent container:
+
+```bash
+docker compose exec -it langgraph-agent python graph.py
+```
+
+You can also open a shell in the container first:
+
+```bash
+docker compose exec -it langgraph-agent bash
+```
+
+### Manual setup (alternative)
+
+#### 1. Start the web search service
 
 From the searxng folder, run:
 
@@ -29,14 +60,14 @@ docker run --name searxng -d \
     docker.io/searxng/searxng:latest
 ```
 
-### 2. Start the MCP server
+#### 2. Start the MCP server
 
 ```bash
 cd MCP
 python server.py
 ```
 
-### 3. Run the agent workflow
+#### 3. Run the agent workflow
 
 You can trigger the example workflow from the agent entry point:
 
@@ -80,14 +111,35 @@ GRANT ALL PRIVILEGES ON DATABASE articles TO rohit;
 \q
 ```
 
-3. Set environment variables. You can create a `.env` file at the project root (not committed) using the format in `.env.example`.
+3. If you hit PostgreSQL authentication errors such as `no pg_hba.conf entry...`, inspect the client authentication config from psql:
+
+```bash
+SHOW hba_file;
+sudo vim /etc/postgresql/<version>/main/pg_hba.conf
+```
+
+Add a rule like this:
+
+```conf
+host    all    all    172.18.0.0/16    scram-sha-256
+```
+
+Then restart PostgreSQL:
+
+```bash
+sudo systemctl restart postgresql
+```
+
+4. Set environment variables. You can create a `.env` file at the project root (not committed) using the format in `.env.example`.
 
 Example `.env` values:
 
 ```
-DATABASE_URL=postgresql+asyncpg://rohit:yourpassword@localhost:5432/articles
+DATABASE_URL=postgresql+asyncpg://rohit:yourpassword@host.docker.internal:5432/articles
 NVIDIA_API_KEY=nvapi-REPLACE_WITH_YOUR_KEY
 ```
+
+If PostgreSQL is running locally and you need the app (especially from Docker) to connect to it, use `host.docker.internal` instead of `localhost` in the URL. Also make sure your PostgreSQL configuration allows remote connections by setting `listen_addresses` to `'*'`.
 
 4. Run the server from the `MCP` folder:
 

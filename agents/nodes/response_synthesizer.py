@@ -1,3 +1,6 @@
+import asyncio
+import logging
+
 from langchain_core.messages import (
     AIMessage,
     HumanMessage,
@@ -6,6 +9,8 @@ from langchain_core.messages import (
 
 from schemas.state import AgentState
 from utilities.load_model import load_models
+
+logger = logging.getLogger(__name__)
 
 
 SYSTEM_PROMPT = """
@@ -26,6 +31,7 @@ Guidelines:
 
 
 async def response_synthesizer_node(state: AgentState):
+    logger.info("Starting response_synthesizer_node with %s messages", len(state["messages"]))
     llm = load_models("Synthesizer")
 
     conversation = "\n\n".join(
@@ -35,6 +41,11 @@ async def response_synthesizer_node(state: AgentState):
         ]
     )
 
+    logger.info("Preparing final response LLM call with conversation length=%s", len(conversation))
+    logger.info("Waiting 5 seconds before response synthesizer LLM call")
+    await asyncio.sleep(5)
+    logger.info("Making response synthesizer LLM call")
+    # Instead of again creating Human message we can directly append messages to System prompt
     response = await llm.ainvoke(
         [
             SystemMessage(content=SYSTEM_PROMPT),
@@ -50,6 +61,7 @@ async def response_synthesizer_node(state: AgentState):
         ]
     )
 
+    logger.info("Completed response_synthesizer_node")
     return {
         "messages": [
             AIMessage(
