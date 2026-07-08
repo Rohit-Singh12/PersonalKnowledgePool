@@ -148,6 +148,20 @@ Create a `.env` file in the project root. Refer to `.env.example` for details.
 | `DATABASE_URL` | PostgreSQL connection string (uses `asyncpg`) | `postgresql+asyncpg://rohit:password@host.docker.internal:5432/articles` |
 | `NVIDIA_API_KEY` | API Key for LangGraph orchestrator LLM (Nvidia) | `nvapi-REPLACE_WITH_YOUR_ACTUAL_KEY` |
 
+### 🔑 Setting up a Free NVIDIA API Key
+
+The LangGraph reasoning agent uses the NVIDIA API to run models (like Llama 3.1) for orchestration. NVIDIA offers a generous free tier with complimentary credits to test and run these models:
+
+1. Visit the [NVIDIA API Catalog](https://build.nvidia.com/).
+2. Log in or create a free NVIDIA Developer account.
+3. Select an orchestration model (e.g., Llama-3.1-70b-instruct).
+4. Click **Get API Key** or **Generate Key**.
+5. Copy the generated key (which starts with `nvapi-`).
+6. Add it to your `.env` file:
+   ```env
+   NVIDIA_API_KEY=nvapi-your-generated-key-here
+   ```
+
 > [!TIP]
 > When running the database locally on the host machine and calling it from a docker container, use `host.docker.internal` instead of `localhost` in the connection string.
 
