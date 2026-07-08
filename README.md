@@ -1,101 +1,83 @@
-# Personal Knowledge Pool
+# Personal Knowledge Pool 🏊‍♂️
 
-Personal Knowledge Pool is a small AI-assisted knowledge base project that helps you collect, store, and retrieve information from the web.
+An AI-assisted knowledge base system designed to collect, process, retrieve, and reason over information from the web.
 
-## What it does
+---
 
-- Searches the web for relevant articles
-- Scrapes and processes article content
-- Saves selected results into a local database
-- Lets you ask an agent to retrieve and reason over stored knowledge
+## 🌟 Unique Core Feature: Zero API Keys for Tooling & Integrations
 
-## Project layout
+A key architectural design of **Personal Knowledge Pool** is that **all MCP servers and agent tools run completely locally with ZERO API keys required**. 
 
-- agents/: LangGraph agent workflow and nodes
-- MCP/: MCP server and database-related services
-- searxng/: local search engine setup for web search
+Unlike typical AI frameworks that require expensive, rate-limited, or privacy-invasive third-party SaaS API keys, this project is built for self-hosted independence:
+*   **Web Search via SearXNG:** Uses a local, dockerized instance of **SearXNG** (a privacy-respecting metasearch engine) to aggregate search results across multiple engines without any Google Search, Bing Search, or Tavily API keys.
+*   **Local Scraper via Crawl4AI:** Extracts clean, LLM-friendly Markdown from web pages using `crawl4ai` running locally. No scrapers or proxy services (like Firecrawl or Zyte) are needed.
+*   **Offline Feed & Sitemap Parser:** Directly parses RSS/Atom feeds and site XML maps using python library utility scripts, with no external feed ingestion services.
+*   **Local PostgreSQL Database Tools:** Directly connects to and interacts with a local PostgreSQL server to read the active schema, execute safe read queries, and commit database writes.
 
-## Setup
+> [!NOTE]
+> The only API key needed is for the LLM reasoning agent itself (such as `NVIDIA_API_KEY` for the Nvidia AI Foundation models, or your preferred OpenAI-compatible LLM endpoint), which acts as the orchestrator. All other tools are entirely free and run locally.
 
-### Docker Compose (recommended)
+---
 
-Prerequisites:
-- Docker and Docker Compose installed
-- A `.env` file at the project root with the required environment variables, especially `DATABASE_URL`
+## 🛠 What It Does
 
+1.  **Searches the Web:** Resolves a query using local SearXNG.
+2.  **Scrapes & Parses Pages:** Extracts the core text from webpage URLs, RSS feeds, or sitemaps into clean Markdown.
+3.  **Local Knowledge Base Storage:** Persists relevant information (metadata, snippets, and full page contents) into structured PostgreSQL tables.
+4.  **Retrieves and Reasons:** Employs a multi-node **LangGraph** workflow that can plan complex steps, invoke local tools, query existing databases, and synthesize unified responses.
+
+---
+
+## 📁 Project Layout
+
+*   [agents/](file:///c:/Users/rohit/Personal/GitHubNew/PersonalKnowledgePool/agents): LangGraph orchestrator, state schemas, and processing nodes.
+    *   **Planner Node:** Outlines tasks to solve a user's prompt.
+    *   **Tool Call Node:** Executes registered MCP tools.
+    *   **Query Resolver Node:** Finds and retrieves stored database knowledge.
+    *   **Task Context & Synthesizer Nodes:** Combines information across tasks.
+*   [MCP/](file:///c:/Users/rohit/Personal/GitHubNew/PersonalKnowledgePool/MCP): FastMCP server implementation exposing tools, database models, and service classes.
+*   [searxng/](file:///c:/Users/rohit/Personal/GitHubNew/PersonalKnowledgePool/searxng): Local search engine Docker configuration and test query scripts.
+
+---
+
+## 🚀 Setup & Execution
+
+### Option A: Docker Compose (Recommended)
+
+Docker Compose orchestrates the database, search engine, MCP server, and LangGraph agent out-of-the-box.
+
+#### Prerequisites
+*   Docker & Docker Compose installed.
+*   A `.env` file at the project root populated with your LLM API Key and PostgreSQL connection string (see the [Environment Variables](#environment-variables) section below).
+
+#### Start Services
 From the project root, run:
-
 ```bash
 docker compose up --build
 ```
+This launches:
+*   `searxng` at `http://localhost:8888`
+*   `mcp-server` at `http://localhost:8080/mcp`
+*   `langgraph-agent` running in background/interactive mode.
 
-This starts the following services:
-- `searxng` on http://localhost:8888
-- `mcp-server` on http://localhost:8080
-- `langgraph-agent` as an interactive container for running the agent workflow
-
-To run the example workflow from the agent container:
-
+#### Run the Agent
+To start an interactive chat session inside the running agent container:
 ```bash
 docker compose exec -it langgraph-agent python graph.py
 ```
-
-You can also open a shell in the container first:
-
+To open a bash shell in the agent container:
 ```bash
 docker compose exec -it langgraph-agent bash
 ```
 
-## Database migrations with Alembic
+---
 
-The MCP service uses Alembic to manage PostgreSQL schema changes. Migration scripts live in [MCP/alembic](MCP/alembic) and the configuration is in [MCP/alembic.ini](MCP/alembic.ini).
+### Option B: Manual Setup (Alternative)
 
-### Production-style workflow with Docker Compose
+If you prefer to run services individually without containerizing the Python apps:
 
-For production-like deployments, run migrations from the running MCP container before or during a controlled deploy.
-
-1. Make sure the container has access to the correct database via the `DATABASE_URL` value in your `.env` file.
-2. Take a database backup using your usual production backup process.
-3. Apply the latest migrations:
-
-```bash
-docker compose exec -T mcp-server alembic upgrade head
-```
-
-4. Verify the current revision:
-
-```bash
-docker compose exec -T mcp-server alembic current
-```
-
-5. If you need to create a new migration after changing SQLAlchemy models:
-
-```bash
-docker compose exec -T mcp-server alembic revision --autogenerate -m "describe your change"
-```
-
-6. If you ever need to roll back a migration, use:
-
-```bash
-docker compose exec -T mcp-server alembic downgrade -1
-```
-
-### Local/manual Alembic usage
-
-If you are running the MCP app outside Docker, use the same commands from the `MCP` directory:
-
-```bash
-cd MCP
-alembic upgrade head
-alembic current
-```
-
-### Manual setup (alternative)
-
-#### 1. Start the web search service
-
-From the searxng folder, run:
-
+#### 1. Start the SearXNG Container
+From the `searxng` directory, execute:
 ```bash
 docker run --name searxng -d \
     -p 8888:8080 \
@@ -104,94 +86,109 @@ docker run --name searxng -d \
     docker.io/searxng/searxng:latest
 ```
 
-#### 2. Start the MCP server
+#### 2. Install Python Dependencies
+Make sure you have [uv](https://github.com/astral-sh/uv) installed, then run:
+```bash
+uv sync
+```
 
+#### 3. Run the MCP Server
+From the `MCP` directory:
 ```bash
 cd MCP
 python server.py
 ```
 
-#### 3. Run the agent workflow
-
-You can trigger the example workflow from the agent entry point:
-
+#### 4. Run the Agent Workflow
 ```bash
 python agents/graph.py
 ```
 
-The example query in agents/graph.py asks the agent to look for articles, scrape them, and save the best results to the database.
+---
 
-## Notes
+## 🗄 Database Migrations (Alembic)
 
-- The project currently uses a local database and local search setup.
-- You can modify the message in agents/graph.py to ask for different topics or article selections.
+The system uses Alembic to manage database schema updates in PostgreSQL. Migration files reside in [MCP/alembic](file:///c:/Users/rohit/Personal/GitHubNew/PersonalKnowledgePool/MCP/alembic) and configuration is located in [MCP/alembic.ini](file:///c:/Users/rohit/Personal/GitHubNew/PersonalKnowledgePool/MCP/alembic.ini).
 
-## Future improvements
+### Migrations with Docker Compose
+If running under Docker Compose, execute migrations from the `mcp-server` container:
 
-- Store checkpoints in PostgreSQL for better persistence and queryability
-- Build a Karpathy-style knowledge base that consolidates all of the user's data
-- Add user personalization so the system can tailor searches, summaries, and recommendations to the individual user
+1.  **Apply Migrations:** Upgrades the database to the latest schema version.
+    ```bash
+    docker compose exec -T mcp-server alembic upgrade head
+    ```
+2.  **Check Current Revision:**
+    ```bash
+    docker compose exec -T mcp-server alembic current
+    ```
+3.  **Generate a New Migration:** (Run after modifying SQLAlchemy models in [MCP/db/models](file:///c:/Users/rohit/Personal/GitHubNew/PersonalKnowledgePool/MCP/db/models))
+    ```bash
+    docker compose exec -T mcp-server alembic revision --autogenerate -m "description of change"
+    ```
+4.  **Downgrade Schema:**
+    ```bash
+    docker compose exec -T mcp-server alembic downgrade -1
+    ```
 
-## Prerequisites: PostgreSQL and environment variables
-
-Before running the MCP server you must have PostgreSQL (psql) available and the required environment variables set.
-
-1. Install PostgreSQL (example for Ubuntu/Debian):
-
+### Local/Manual Migrations
+If running outside of Docker:
 ```bash
-sudo apt update
-sudo apt install -y postgresql postgresql-contrib
+cd MCP
+alembic upgrade head
 ```
 
-2. Start PostgreSQL and create a database and user (example):
+---
 
-```bash
-sudo systemctl start postgresql
-sudo -u postgres psql
--- In the psql prompt:
+## ⚙ Environment Variables
+
+Create a `.env` file in the project root. Refer to `.env.example` for details.
+
+| Variable Name | Description | Example / Recommended Value |
+| :--- | :--- | :--- |
+| `DATABASE_URL` | PostgreSQL connection string (uses `asyncpg`) | `postgresql+asyncpg://rohit:password@host.docker.internal:5432/articles` |
+| `NVIDIA_API_KEY` | API Key for LangGraph orchestrator LLM (Nvidia) | `nvapi-REPLACE_WITH_YOUR_ACTUAL_KEY` |
+
+> [!TIP]
+> When running the database locally on the host machine and calling it from a docker container, use `host.docker.internal` instead of `localhost` in the connection string.
+
+---
+
+## 🛠 Local PostgreSQL Configuration & Troubleshooting
+
+### 1. Database Creation
+If running PostgreSQL locally on your host machine, create the database and user:
+```sql
 CREATE DATABASE articles;
 CREATE USER rohit WITH ENCRYPTED PASSWORD 'yourpassword';
 GRANT ALL PRIVILEGES ON DATABASE articles TO rohit;
-\q
 ```
 
-3. If you hit PostgreSQL authentication errors such as `no pg_hba.conf entry...`, inspect the client authentication config from psql:
+### 2. Resolving Client Authentication (`pg_hba.conf`) Errors
+If Docker containers cannot authenticate with PostgreSQL, you might see `no pg_hba.conf entry...`. 
 
-```bash
-SHOW hba_file;
-sudo vim /etc/postgresql/<version>/main/pg_hba.conf
-```
+To fix this:
+1.  Locate your `pg_hba.conf` by running this in `psql`:
+    ```sql
+    SHOW hba_file;
+    ```
+2.  Edit the file (e.g., `/etc/postgresql/<version>/main/pg_hba.conf` on Linux) and add a rule allowing connections from your Docker network bridge subnet:
+    ```conf
+    # Allow Docker container subnet access
+    host    all             all             172.18.0.0/16           scram-sha-256
+    ```
+3.  Ensure your `postgresql.conf` allows connections on all network interfaces:
+    ```conf
+    listen_addresses = '*'
+    ```
+4.  Restart PostgreSQL:
+    ```bash
+    sudo systemctl restart postgresql
+    ```
 
-Add a rule like this:
+---
 
-```conf
-host    all    all    172.18.0.0/16    scram-sha-256
-```
+## 🔮 Future Roadmap
 
-Then restart PostgreSQL:
-
-```bash
-sudo systemctl restart postgresql
-```
-
-4. Set environment variables. You can create a `.env` file at the project root (not committed) using the format in `.env.example`.
-
-Example `.env` values:
-
-```
-DATABASE_URL=postgresql+asyncpg://rohit:yourpassword@host.docker.internal:5432/articles
-NVIDIA_API_KEY=nvapi-REPLACE_WITH_YOUR_KEY
-```
-
-If PostgreSQL is running locally and you need the app (especially from Docker) to connect to it, use `host.docker.internal` instead of `localhost` in the URL. Also make sure your PostgreSQL configuration allows remote connections by setting `listen_addresses` to `'*'`.
-
-4. Run the server from the `MCP` folder:
-
-```bash
-cd MCP
-python server.py
-```
-
-Notes:
-- Replace `rohit:yourpassword` with the DB user and password you created.
-- If you use a different API provider, set the corresponding API key environment variable instead of `NVIDIA_API_KEY`.
+*   **PostgreSQL Graph Checkpointing:** Save LangGraph session states directly to PostgreSQL instead of local SQLite files for shared multi-user sessions.
+*   **Consolidated Personal Knowledge Base:** Establish a Karpathy-style knowledge vault that index and search over markdown notes, uploaded files, and bookmarks.
+*   **User Personalization:** Enhance search reasoning nodes to weight queries and summarize results based on user preferences and search histories.
