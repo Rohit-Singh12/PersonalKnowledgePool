@@ -104,34 +104,28 @@ python server.py
 python agents/graph.py
 ```
 
----
+The example query in agents/graph.py asks the agent to look for articles, scrape them, and save the best results to the database.
 
-## 🗄 Database Migrations (Alembic)
+## Notes
 
-The system uses Alembic to manage database schema updates in PostgreSQL. Migration files reside in [MCP/alembic](file:///c:/Users/rohit/Personal/GitHubNew/PersonalKnowledgePool/MCP/alembic) and configuration is located in [MCP/alembic.ini](file:///c:/Users/rohit/Personal/GitHubNew/PersonalKnowledgePool/MCP/alembic.ini).
+- The project currently uses a local database and local search setup.
+- You can modify the message in agents/graph.py to ask for different topics or article selections.
 
-### Migrations with Docker Compose
-If running under Docker Compose, execute migrations from the `mcp-server` container:
+## Future improvements
 
-1.  **Apply Migrations:** Upgrades the database to the latest schema version.
-    ```bash
-    docker compose exec -T mcp-server alembic upgrade head
-    ```
-2.  **Check Current Revision:**
-    ```bash
-    docker compose exec -T mcp-server alembic current
-    ```
-3.  **Generate a New Migration:** (Run after modifying SQLAlchemy models in [MCP/db/models](file:///c:/Users/rohit/Personal/GitHubNew/PersonalKnowledgePool/MCP/db/models))
-    ```bash
-    docker compose exec -T mcp-server alembic revision --autogenerate -m "description of change"
-    ```
-4.  **Downgrade Schema:**
-    ```bash
-    docker compose exec -T mcp-server alembic downgrade -1
-    ```
+- Add more robust and better error handling
+- Add thinking node in case the task is not completed to verify the plan itself
+- Add validation node as well to validate the task
+- Store checkpoints in PostgreSQL for better persistence and queryability
+- Build a Karpathy-style knowledge base that consolidates all of the user's data
+- Add user personalization so the system can tailor searches, summaries, and recommendations to the individual user
 
-### Local/Manual Migrations
-If running outside of Docker:
+## Prerequisites: PostgreSQL and environment variables
+
+Before running the MCP server you must have PostgreSQL (psql) available and the required environment variables set.
+
+1. Install PostgreSQL (example for Ubuntu/Debian):
+
 ```bash
 cd MCP
 alembic upgrade head

@@ -1,11 +1,10 @@
-import asyncio
 import json
 import logging
 
 from langchain_core.messages import (
     SystemMessage,
     HumanMessage,
-    AIMessage
+    AIMessage,
 )
 from langchain_core.prompts import PromptTemplate
 
@@ -13,6 +12,12 @@ from schemas.state import AgentState
 
 from utilities.load_model import load_models
 from utilities.dependency_helper import get_task
+from utilities.retry_helper import (
+    llm_call_with_retry,
+    NodeExecutionError,
+    make_error_event,
+    MAX_RETRY_COUNT,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -36,62 +41,111 @@ Here is the context. Answer based on the context ONLY.
 
 
 async def answer_query_node(state: AgentState):
-    logger.info("Starting answer_query_node for current_task_id=%s", state.get("current_task_id"))
-
-    task = get_task(
-        state,
-        state["current_task_id"]
+    logger.info(
+        "Starting answer_query_node for current_task_id=%s",
+        state.get("current_task_id"),
     )
 
+    task = get_task(state, state["current_task_id"])
     assert task is not None
 
     artifacts_key = f"{task['id']}_{task['type']}"
-
-    query_history = state["artifacts"].get(
-        artifacts_key
-    )
+    query_history = state["artifacts"].get(artifacts_key)
 
     if not query_history:
-        logger.info("No query history found for artifact %s; skipping LLM call", artifacts_key)
+        logger.info(
+            "No query history found for artifact %s; skipping LLM call", artifacts_key
+        )
         return {}
 
     latest = query_history[-1]
-    logger.info("Preparing query resolution LLM call for artifact %s with latest query=%s", artifacts_key, latest.get("query"))
-
-    llm = load_models("Planner")
-    logger.info("Waiting 5 seconds before query resolver LLM call")
-    await asyncio.sleep(5)
-    logger.info("Making query resolver LLM call")
-    response = await llm.ainvoke(
-        [
-            SystemMessage(
-                content=QUERY_SYSTEM_PROMPT.format(context=json.dumps(query_history, indent=2))
-            ),
-            HumanMessage(
-                content=latest['query']
-            )
-        ]
+    logger.info(
+        "Preparing query resolution LLM call for artifact %s | query=%s",
+        artifacts_key,
+        latest.get("query"),
     )
 
-    logger.info("Received query resolution response for artifact %s", artifacts_key)
-    latest["query_response"] = {
-        "answer": response.content
-    }
+    llm = load_models("Planner")
 
+    async def make_resolver_call():
+        return await llm.ainvoke(
+            [
+                SystemMessage(
+                    content=QUERY_SYSTEM_PROMPT.format(
+                        context=json.dumps(query_history, indent=2)
+                    )
+                ),
+                HumanMessage(content=latest["query"]),
+            ]
+        )
+
+    try:
+        response = await llm_call_with_retry(
+            "query_resolver",
+            make_resolver_call,
+            max_retries=MAX_RETRY_COUNT,
+        )
+    except NodeExecutionError as e:
+        logger.error(
+            "Query resolver permanently failed [%s]: %s",
+            e.error_type.value,
+            e.cause,
+            exc_info=True,
+        )
+        error_event = make_error_event(
+            "query_resolver", e.cause, e.error_type, MAX_RETRY_COUNT
+        )
+
+        # Store partial failure in query_response so context_synthesizer
+        # can still read it on the next cycle (partial info > none).
+        latest["query_response"] = {
+            "answer": None,
+            "error": str(e.cause),
+            "error_type": e.error_type.value,
+        }
+        query_history[-1] = latest
+        artifacts = dict(state["artifacts"])
+        artifacts[artifacts_key] = query_history
+
+        return {
+            "artifacts": artifacts,
+            "needs_user_input": True,
+            "node_errors": [error_event],
+            "messages": [
+                AIMessage(
+                    content=(
+                        f"Query resolver could not answer the query "
+                        f"'{latest['query']}' due to a "
+                        f"{e.error_type.value} error: {e.cause}. "
+                        f"Escalating to final response."
+                    ),
+                    additional_kwargs={
+                        "node_name": "query_node",
+                        "next_node": "response_synthesizer",
+                    },
+                )
+            ],
+        }
+
+    logger.info("Received query resolution response for artifact %s", artifacts_key)
+
+    latest["query_response"] = {"answer": response.content}
     query_history[-1] = latest
 
-    state["artifacts"][artifacts_key] = query_history
+    # Return a new artifacts dict — never mutate state in place
+    artifacts = dict(state["artifacts"])
+    artifacts[artifacts_key] = query_history
 
     logger.info("Completed answer_query_node for artifact %s", artifacts_key)
     return {
-        "artifacts": state["artifacts"],
+        "artifacts": artifacts,
         "messages": [
             AIMessage(
                 content="Query resolved.",
                 additional_kwargs={
                     "node_name": "query_node",
-                    "next_node": "context_synthesizer"
-                }
+                    "next_node": "context_synthesizer",
+                },
             )
-        ]
+        ],
     }

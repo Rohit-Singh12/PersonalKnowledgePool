@@ -73,6 +73,8 @@ async def run_agent_step(app, checkpointer, message: str, thread_id: str):
         selected_tool_name=None,
         tasks=[],
         worker_traces=[],
+        node_errors=[],          
+        needs_user_input=False,
     )
     
     final_state = await app.ainvoke(state, config=config)

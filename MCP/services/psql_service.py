@@ -90,7 +90,9 @@ async def write_sql(
         )
 
     async with AsyncSessionLocal() as session:
-
+        print("="*50)
+        print("SQL QUERY : " + sql)
+        print("="*50)
         result = await session.execute(
             text(sql)
         )
