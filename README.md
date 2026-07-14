@@ -196,7 +196,7 @@ To fix this:
 ---
 
 ## 🔮 Future Roadmap
-
+*   **Memory:** Add memory to agent for Self-reactiveness and Self-reflectiveness, to improve its result in case of uncertainity 
 *   **PostgreSQL Graph Checkpointing:** Save LangGraph session states directly to PostgreSQL instead of local SQLite files for shared multi-user sessions.
 *   **Consolidated Personal Knowledge Base:** Establish a Karpathy-style knowledge vault that index and search over markdown notes, uploaded files, and bookmarks.
 *   **User Personalization:** Enhance search reasoning nodes to weight queries and summarize results based on user preferences and search histories.
